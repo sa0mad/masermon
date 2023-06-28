@@ -7,6 +7,7 @@ import json
 import traceback
 import click
 import binascii
+import re
 
 efosb_channels = [
     { "chan": 0,    "name": "InputA_U",       "signed": -128,   "scale": 0.230,   "offset": 0    },
@@ -121,7 +122,132 @@ def vch1006_process(DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
        buf = ser.read(189)
        s = binascii.hexlify(bytearray(buf))
        print(s)
-            
+
+def scpi_write(SER, STR):
+    SER.write(str.encode(STR+"\r\n"))
+    s = SER.readline()
+
+def scpi_read_line(SER):
+    s = SER.readline()
+    return s.decode("utf-8").rstrip()
+
+def scpi_read_string(SER):
+    s = scpi_read_line(SER)
+    return re.sub(r'"', '', s)
+
+def scpi_read_int(SER):
+    s = scpi_read_line(SER)
+    return int(s)
+
+def scpi_read_intvec(SER):
+    s = scpi_read_line(SER)
+    return [int(x) for x in s.split(',')]
+
+def scpi_read_float(SER):
+    s = scpi_read_line(SER)
+    return float(s)
+
+def scpi_read_floatvec(SER):
+    s = scpi_read_line(SER)
+    return [float(x) for x in s.split(',')]
+       
+def hp5071a_process(DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
+    with serial.Serial(SERIALDEVICE, BAUDRATE, bytesize=8, parity='N', stopbits=1, xonxoff=1, timeout=2) as ser:
+        #client = InfluxDBClient(host='localhost', port=8086)
+        #client = InfluxDBClient(host='labpi.rubidium.se', port=8086, ssl=True, ssl_verify=True)
+        client = InfluxDBClient(host='labpi.rubidium.se', port=8086, ssl=True, verify_ssl=True)
+        client.create_database(DATABASE)
+        client.switch_database(DATABASE)
+        # Start up and get Identity
+        scpi_write(ser, "")
+        scpi_write(ser, "*IDN?")
+        s = scpi_read_line(ser)
+        # Extract serial number from *IDN? string
+        snr = int(re.split(r'[\,]+', s)[3])
+        while True:
+            timestamp = datetime.datetime.utcnow().isoformat()
+            scpi_write(ser, "PTIM:MJD?")
+            mjd = scpi_read_int(ser)
+            scpi_write(ser, "PTIM?")
+            ssplit = scpi_read_intvec(ser)
+            hour = ssplit[0]
+            min = ssplit[1]
+            sec = ssplit[2]
+            scpi_write(ser, "DIAG:CBTSerial?")
+            CBTID = scpi_read_string(ser)
+            scpi_write(ser, "DIAG:STAT?")
+            CONT = scpi_read_string(ser)
+            scpi_write(ser, "DIAG:CURR:BEAM?")
+            CURR_BEAM = scpi_read_float(ser)
+            scpi_write(ser, "DIAG:CURR:CField?")
+            CURR_CFIELD = scpi_read_float(ser)
+            scpi_write(ser, "DIAG:CURR:PUMP?")
+            CURR_PUMP = scpi_read_float(ser)
+            scpi_write(ser, "DIAG:GAIN?")
+            GAIN = scpi_read_float(ser)
+            scpi_write(ser, "DIAG:RFAMplitude?")
+            RF_AMP = scpi_read_floatvec(ser)
+            scpi_write(ser, "DIAG:TEMP?")
+            TEMP = scpi_read_float(ser)
+            scpi_write(ser, "DIAG:VOLT:COVen?")
+            COVEN = scpi_read_float(ser)
+            scpi_write(ser, "DIAG:VOLT:EMUL?")
+            EMUL = scpi_read_float(ser)
+            scpi_write(ser, "DIAG:VOLT:HWIonizer?")
+            HWI = scpi_read_float(ser)
+            scpi_write(ser, "DIAG:VOLT:MSPec?")
+            MSP = scpi_read_float(ser)
+            scpi_write(ser, "DIAG:VOLT:PLLoop?")
+            PLL = scpi_read_floatvec(ser)
+            PLL9_2 = PLL[0]
+            PLL640 = PLL[1]
+            PLL87  = PLL[2]
+            PLL9   = PLL[3]
+            scpi_write(ser, "DIAG:VOLT:SUPPly?")
+            SUPP = scpi_read_floatvec(ser)
+            VP5V = SUPP[0]
+            VP12V = SUPP[1]
+            VN12V = SUPP[2]
+            scpi_write(ser, "DIAG:STAT:SUPPly?")
+            SUPP = scpi_read_string(ser)
+            json_body = [
+                {
+                "measurement": MASERID,
+                "tags": {
+                    "masertype": "HP5071A",
+                    "maser": snr,
+                    "tube": CBTID
+                },
+                "time": timestamp,
+                "fields": {
+                    "Supply": SUPP,
+                    "+5V": VP5V,
+                    "+12V": VP12V,
+                    "-12V": VN12V,
+                    "Temp": TEMP,
+                    "MJD": mjd,
+                    "Cont OpStatus": CONT,
+                    "Beam Current": CURR_BEAM,
+                    "C-field Current": CURR_CFIELD,
+                    "Ionpump Current": CURR_PUMP,
+                    "Gain": GAIN,
+                    "RF Amplitude 1": RF_AMP[0],
+                    "RF Amplitude 2": RF_AMP[1],
+                    "Cesium Oven Voltage": COVEN,
+                    "Electron Multiplier Voltage": EMUL,
+                    "Hot Wire Ionizer Voltage": HWI,
+                    "Mass Spectrometer Voltage": MSP,
+                    "DRO Tuning Voltage": PLL9_2,
+                    "SAW Tuning Voltage": PLL640,
+                    "87 MHz Tuning Voltage": PLL87,
+                    "uC clock Tuning Voltage": PLL9
+                    }
+                }
+            ]
+            client.write_points(json_body)
+            time.sleep(LOGRATE)
+                    
+
 @click.group()
 @click.option('--baudrate', default=9600 , help="Serial port baudrate (default 9600)")
 @click.option('--device', default='/dev/ttyUSB0', help="Serial port device (default /dev/ttyUSB0")
@@ -150,6 +276,13 @@ def vch1006(ctx):
     "VCH1006 passive maser protocol"
     print("VCH1006 protocol for %s using device % at rate %i" % (ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate']))
     vch1006_process(ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
+    
+@maser.command()
+@click.pass_context
+def HP5071A(ctx):
+    "HP5071A cesium protocol"
+    print("HP5071A protocol for %s %s using device % at rate %i" % (ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate']))
+    hp5071a_process(ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
     
 if __name__ == '__main__':
     maser(obj={})
