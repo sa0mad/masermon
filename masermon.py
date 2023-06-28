@@ -246,7 +246,59 @@ def hp5071a_process(DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
             ]
             client.write_points(json_body)
             time.sleep(LOGRATE)
-                    
+
+                   
+def dpm7885_process(DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
+    with serial.Serial(SERIALDEVICE, BAUDRATE, bytesize=8, parity='N', stopbits=1, xonxoff=1, timeout=2) as ser:
+        client = InfluxDBClient(host='labpi.rubidium.se', port=8086, ssl=True, verify_ssl=True)
+        client.create_database(DATABASE)
+        client.switch_database(DATABASE)
+        # Start up and get Identity
+        ser.write(str.encode("\r\n"))
+        s = ser.readline()
+        ser.write(str.encode("$MS\r\n"))
+        # Clean pipe with data
+        s = ser.readline()
+        while s != b'':
+            s = ser.readline()
+        # Get ID and Serial numbers
+        ser.write(str.encode("$TT\r\n"))
+        type = ser.readline()
+        ser.write(str.encode("$TS\r\n"))
+        s = re.sub(r'\+', '', (ser.readline()).decode("utf-8").rstrip())
+        snr = int(re.split(r' ', s)[0])
+        cynr = int(re.split(r' ', s)[1])
+        canr = int(re.split(r' ', s)[2])
+        ser.write(str.encode("$SU3"))
+        s = ser.readline()
+        while True:
+            timestamp = datetime.datetime.utcnow().isoformat()
+            ser.write(str.encode("$MR\r\n"))
+            s = ser.readline()
+            pressure = 100*float(s)
+            ser.write(str.encode("$MT\r\n"))
+            s = ser.readline()
+            temp = float(s)
+            #print("%f %f" % (pressure, temp))
+            json_body = [
+                {
+                "measurement": MASERID,
+                "tags": {
+                    "masertype": "dpm7885",
+                    "snr": snr,
+                    "cylinernr" : cynr,
+                    "calnr": canr
+                },
+                "time": timestamp,
+                "fields": {
+                    "Pressure": pressure,
+                    "Temp": temp
+                    }
+                }
+            ]
+            client.write_points(json_body)
+            time.sleep(LOGRATE)
+
 
 @click.group()
 @click.option('--baudrate', default=9600 , help="Serial port baudrate (default 9600)")
@@ -283,6 +335,13 @@ def HP5071A(ctx):
     "HP5071A cesium protocol"
     print("HP5071A protocol for %s %s using device % at rate %i" % (ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate']))
     hp5071a_process(ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
+
+@maser.command()
+@click.pass_context
+def DPM7885(ctx):
+    "DPM7885 pressure sensor"
+    print("DPM7885 pressure sensor for %s %s using device %s at rate %i" % (ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate']))
+    dpm7885_process(ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
     
 if __name__ == '__main__':
     maser(obj={})
