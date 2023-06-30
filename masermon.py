@@ -47,6 +47,16 @@ efosb_channels = [
     { "chan": 34,   "name": "Lock",           "signed": 0,      "scale": 1.000,   "offset": 0    },
 ]
 
+def is_number(s):
+    if s is None:
+        return False
+    if s.isnumeric():
+        return True
+    r = re.fullmatch('[+-]?([0-9]+)?[.]?[0-9]+([eE]([0-9]+))?',s)
+    if r:
+        return True
+    return False
+
 #with open('EFOS14.json') as f:
 #    s = f.read()
 #    channels = json.loads(s)
@@ -274,11 +284,17 @@ def dpm7885_process(DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
         while True:
             timestamp = datetime.datetime.utcnow().isoformat()
             ser.write(str.encode("$MR\r\n"))
-            s = ser.readline()
-            pressure = 100*float(s)
+            s = (ser.readline()).decode("utf-8").rstrip()
+            if is_number(s):
+                pressure = 100*float(s)
+            else:
+                pressure = 0.0
             ser.write(str.encode("$MT\r\n"))
-            s = ser.readline()
-            temp = float(s)
+            s = (ser.readline()).decode("utf-8").rstrip()
+            if is_number(s):
+                temp = float(s)
+            else:
+                temp = 0.0
             #print("%f %f" % (pressure, temp))
             json_body = [
                 {
