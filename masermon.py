@@ -257,40 +257,39 @@ def hp5071a_process(DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
             client.write_points(json_body)
             time.sleep(LOGRATE)
 
-                   
+def dpm7885_write(SER, S):
+    SER.write(str.encode(S+"\r\n"))
+    s = SER.readline()
+    return s.decode("utf-8").rstrip()
+            
 def dpm7885_process(DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
     with serial.Serial(SERIALDEVICE, BAUDRATE, bytesize=8, parity='N', stopbits=1, xonxoff=1, timeout=2) as ser:
         client = InfluxDBClient(host='labpi.rubidium.se', port=8086, ssl=True, verify_ssl=True)
         client.create_database(DATABASE)
         client.switch_database(DATABASE)
         # Start up and get Identity
-        ser.write(str.encode("\r\n"))
-        s = ser.readline()
+        dpm7885_write(ser, "")
         ser.write(str.encode("$MS\r\n"))
         # Clean pipe with data
         s = ser.readline()
         while s != b'':
             s = ser.readline()
         # Get ID and Serial numbers
-        ser.write(str.encode("$TT\r\n"))
-        type = ser.readline()
-        ser.write(str.encode("$TS\r\n"))
-        s = re.sub(r'\+', '', (ser.readline()).decode("utf-8").rstrip())
+        type = dpm7885_write(ser, "$TT")
+        s = dpm7885_write(ser, "$TS")
+        s = re.sub(r'\+', '', s)
         snr = int(re.split(r' ', s)[0])
         cynr = int(re.split(r' ', s)[1])
         canr = int(re.split(r' ', s)[2])
-        ser.write(str.encode("$SU3"))
-        s = ser.readline()
+        dpm7885_write(ser, "$SU3")
         while True:
             timestamp = datetime.datetime.utcnow().isoformat()
-            ser.write(str.encode("$MR\r\n"))
-            s = (ser.readline()).decode("utf-8").rstrip()
+            s = dpm7885_write(ser, "$MR")
             if is_number(s):
                 pressure = 100*float(s)
             else:
                 pressure = 0.0
-            ser.write(str.encode("$MT\r\n"))
-            s = (ser.readline()).decode("utf-8").rstrip()
+            s = dpm7885_write(ser, "$MT")
             if is_number(s):
                 temp = float(s)
             else:
