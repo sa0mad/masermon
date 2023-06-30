@@ -261,6 +261,11 @@ def dpm7885_write(SER, S):
     SER.write(str.encode(S+"\r\n"))
     s = SER.readline()
     return s.decode("utf-8").rstrip()
+
+def dpm7885_sync(SER):
+    s = SER.readline()
+    while s != b'':
+        s = SER.readline()
             
 def dpm7885_process(DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
     with serial.Serial(SERIALDEVICE, BAUDRATE, bytesize=8, parity='N', stopbits=1, xonxoff=1, timeout=2) as ser:
@@ -269,11 +274,9 @@ def dpm7885_process(DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
         client.switch_database(DATABASE)
         # Start up and get Identity
         dpm7885_write(ser, "")
-        ser.write(str.encode("$MS\r\n"))
+        dpm7885_write(ser, "$MS")
         # Clean pipe with data
-        s = ser.readline()
-        while s != b'':
-            s = ser.readline()
+        dpm7885_sync(ser)
         # Get ID and Serial numbers
         type = dpm7885_write(ser, "$TT")
         s = dpm7885_write(ser, "$TS")
