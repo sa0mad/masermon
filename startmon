@@ -1,5 +1,5 @@
 #!/bin/sh
 echo "Starting masermon for HP5071A"
-python3 masermon.py --database gaston hp5071a &
+python3 masermon.py --host=labpi.rubidium.se --database gaston hp5071a &
 echo "Starting masermon for DPM7885"
-python3 masermon.py --database gaston --device /dev/ttyUSB1 dpm7885 &
+python3 masermon.py --host=labpi.rubidium.se --database gaston --device /dev/ttyUSB1 dpm7885 &
