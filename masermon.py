@@ -324,19 +324,19 @@ def dpm7885_process(HOST, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
 
 @click.group()
 @click.option('--host', default='localhost', help="InfluxDB host (default localhost)")
-@click.option('--baudrate', default=9600 , help="Serial port baudrate (default 9600)")
-@click.option('--device', default='/dev/ttyUSB0', help="Serial port device (default /dev/ttyUSB0")
 @click.option('--database', default='EFOStest', help="InfluxDB database name (default EFOStest)")
 @click.option('--maserid', default='maserdata', help="InfluxDB data name for maser data (default maserdata)")
+@click.option('--device', default='/dev/ttyUSB0', help="Serial port device (default /dev/ttyUSB0")
+@click.option('--baudrate', default=9600 , help="Serial port baudrate (default 9600)")
 @click.option('--lograte', default=10, help="Log-rate in seconds (default 10 s)")
 @click.pass_context
 def maser(ctx, host, device, baudrate, database, maserid, lograte):
     ctx.ensure_object(dict)
     ctx.obj['host'] = host
-    ctx.obj['device'] = device
-    ctx.obj['baudrate'] = baudrate
     ctx.obj['database'] = database
     ctx.obj['maserid'] = maserid
+    ctx.obj['device'] = device
+    ctx.obj['baudrate'] = baudrate
     ctx.obj['lograte'] = lograte
 
 @maser.command()
