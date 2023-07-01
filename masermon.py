@@ -8,6 +8,7 @@ import traceback
 import click
 import binascii
 import re
+import logging
 
 efosb_channels = [
     { "chan": 0,    "name": "InputA_U",       "signed": -128,   "scale": 0.230,   "offset": 0    },
@@ -288,37 +289,38 @@ def dpm7885_process(DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
         cynr = int(re.split(r' ', s)[1])
         canr = int(re.split(r' ', s)[2])
         while True:
-            timestamp = datetime.datetime.utcnow().isoformat()
-            s = dpm7885_write(ser, "$MR")
-            if is_number(s):
+            try:
+                timestamp = datetime.datetime.utcnow().isoformat()
+                s = dpm7885_write(ser, "$MR")
+                assert is_number(s)
                 pressure = 100*float(s)
-            else:
-                pressure = 0.0
-            s = dpm7885_write(ser, "$MT")
-            if is_number(s):
+                s = dpm7885_write(ser, "$MT")
+                assert is_number(s)
                 temp = float(s)
-            else:
-                temp = 0.0
-            #print("%f %f" % (pressure, temp))
-            json_body = [
-                {
-                "measurement": MASERID,
-                "tags": {
-                    "masertype": "dpm7885",
-                    "snr": snr,
-                    "cylinernr" : cynr,
-                    "calnr": canr
-                },
-                "time": timestamp,
-                "fields": {
-                    "Pressure": pressure,
-                    "Temp": temp
+                assert temp < 200
+                #print("%f %f" % (pressure, temp))
+                json_body = [
+                    {
+                        "measurement": MASERID,
+                        "tags": {
+                            "masertype": "dpm7885",
+                            "snr": snr,
+                            "cylinernr" : cynr,
+                            "calnr": canr
+                        },
+                        "time": timestamp,
+                        "fields": {
+                            "Pressure": pressure,
+                            "Temp": temp
+                        }
                     }
-                }
-            ]
-            client.write_points(json_body)
-            time.sleep(LOGRATE)
-
+                ]
+                client.write_points(json_body)
+                time.sleep(LOGRATE)
+            except AssertionError as e:
+               logging.error(e)
+               dpm7885_init(ser)
+ 
 
 @click.group()
 @click.option('--baudrate', default=9600 , help="Serial port baudrate (default 9600)")
