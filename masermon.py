@@ -88,9 +88,9 @@ def efosb_poll_chan(ser, chan):
             time.sleep(0.01)
     return (-1, True)
 
-def efosb_process(HOST, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
+def efosb_process(HOST, PORT, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
     with serial.Serial(SERIALDEVICE, BAUDRATE, timeout=2) as ser:
-        client = InfluxDBClient(host=HOST, port=8086)
+        client = InfluxDBClient(host=HOST, port=PORT)
         client.create_database(DATABASE)
         client.switch_database(DATABASE)
         fields = {}
@@ -122,7 +122,7 @@ def efosb_process(HOST, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
             client.write_points(json_body)
             time.sleep(LOGRATE)
 
-def vch1006_process(HOST, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
+def vch1006_process(HOST, PORT, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
     with serial.Serial(SERIALDEVICE, BAUDRATE, timeout=2) as ser:
        print("Test connection")
        ser.write(b'\x01')
@@ -162,11 +162,11 @@ def scpi_read_floatvec(SER):
     s = scpi_read_line(SER)
     return [float(x) for x in s.split(',')]
        
-def hp5071a_process(DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
+def hp5071a_process(HOST, PORT, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
     with serial.Serial(SERIALDEVICE, BAUDRATE, bytesize=8, parity='N', stopbits=1, xonxoff=1, timeout=2) as ser:
         #client = InfluxDBClient(host='localhost', port=8086)
         #client = InfluxDBClient(host='labpi.rubidium.se', port=8086, ssl=True, ssl_verify=True)
-        client = InfluxDBClient(host=HOST, port=8086, ssl=True, verify_ssl=True)
+        client = InfluxDBClient(host=HOST, port=PORT, ssl=True, verify_ssl=True)
         client.create_database(DATABASE)
         client.switch_database(DATABASE)
         # Start up and get Identity
@@ -274,9 +274,9 @@ def dpm7885_init(SER):
     dpm7885_sync(SER)
     dpm7885_write(SER, "$SU3")
             
-def dpm7885_process(HOST, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
+def dpm7885_process(HOST, PORT, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
     with serial.Serial(SERIALDEVICE, BAUDRATE, bytesize=8, parity='N', stopbits=1, xonxoff=1, timeout=2) as ser:
-        client = InfluxDBClient(host=HOST, port=8086, ssl=True, verify_ssl=True)
+        client = InfluxDBClient(host=HOST, port=PORT, ssl=True, verify_ssl=True)
         client.create_database(DATABASE)
         client.switch_database(DATABASE)
         # Start up and get Identity
@@ -324,15 +324,17 @@ def dpm7885_process(HOST, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
 
 @click.group()
 @click.option('--host', default='localhost', help="InfluxDB host (default localhost)")
+@click.option('--port', default=8086, help="InfluxDB port (default 8086)")
 @click.option('--database', default='EFOStest', help="InfluxDB database name (default EFOStest)")
 @click.option('--maserid', default='maserdata', help="InfluxDB data name for maser data (default maserdata)")
 @click.option('--device', default='/dev/ttyUSB0', help="Serial port device (default /dev/ttyUSB0")
 @click.option('--baudrate', default=9600 , help="Serial port baudrate (default 9600)")
 @click.option('--lograte', default=10, help="Log-rate in seconds (default 10 s)")
 @click.pass_context
-def maser(ctx, host, device, baudrate, database, maserid, lograte):
+def maser(ctx, host, port, device, baudrate, database, maserid, lograte):
     ctx.ensure_object(dict)
     ctx.obj['host'] = host
+    ctx.obj['port'] = port
     ctx.obj['database'] = database
     ctx.obj['maserid'] = maserid
     ctx.obj['device'] = device
@@ -344,28 +346,28 @@ def maser(ctx, host, device, baudrate, database, maserid, lograte):
 def efosb(ctx):
     "EFOS-B active maser protocol"
     print("EFOS-B protocol for %s using device % at rate %i" % (ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate']))
-    efosb_process(ctx.obj['host'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
+    efosb_process(ctx.obj['host'], ctx.obj['port'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
 
 @maser.command()
 @click.pass_context
 def vch1006(ctx):
     "VCH1006 passive maser protocol"
     print("VCH1006 protocol for %s using device % at rate %i" % (ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate']))
-    vch1006_process(ctx.obj['host'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
+    vch1006_process(ctx.obj['host'], ctx.obj['port'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
     
 @maser.command()
 @click.pass_context
 def HP5071A(ctx):
     "HP5071A cesium protocol"
     print("HP5071A protocol for %s %s using device % at rate %i" % (ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate']))
-    hp5071a_process(ctx.obj['host'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
+    hp5071a_process(ctx.obj['host'], ctx.obj['port'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
 
 @maser.command()
 @click.pass_context
 def DPM7885(ctx):
     "DPM7885 pressure sensor"
     print("DPM7885 pressure sensor for %s %s using device %s at rate %i" % (ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate']))
-    dpm7885_process(ctx.obj['host'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
+    dpm7885_process(ctx.obj['host'], ctx.obj['port'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
     
 if __name__ == '__main__':
     maser(obj={})
