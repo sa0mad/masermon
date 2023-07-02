@@ -283,7 +283,11 @@ def dpm7885_process(HOST, PORT, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRA
         dpm7885_init(ser)
         # Get ID and Serial numbers
         type = dpm7885_write(ser, "$TT")
+        while type == '':
+            type = dpm7885_write(ser, "$TT")
         s = dpm7885_write(ser, "$TS")
+        while s == '':
+            s = dpm7885_write(ser, "$TS")
         s = re.sub(r'\+', '', s)
         snr = int(re.split(r' ', s)[0])
         cynr = int(re.split(r' ', s)[1])
