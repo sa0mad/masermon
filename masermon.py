@@ -2,6 +2,7 @@ import serial
 import time
 import sys
 from influxdb import InfluxDBClient
+from influxdb.exceptions import InfluxDBServerError
 import datetime
 import json
 import traceback
@@ -324,6 +325,12 @@ def dpm7885_process(HOST, PORT, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRA
             except AssertionError as e:
                logging.error(e)
                dpm7885_init(ser)
+            except InfluxDBServerError as e:
+                logging.error(e)
+                client = InfluxDBClient(host=HOST, port=PORT, ssl=True, verify_ssl=True)
+                client.create_database(DATABASE)
+                client.switch_database(DATABASE)
+                time.sleep(1)
  
 
 @click.group()
