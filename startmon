@@ -1,4 +1,6 @@
 #!/bin/sh
+echo "Starting masermon for EFOS-B"
+python3 masermon.py --host=labpi.rubidium.se --database EFOStest --device /dev/ttyUSB3 efosb &
 echo "Starting masermon for HP5071A"
 python3 masermon.py --host=labpi.rubidium.se --database gaston hp5071a &
 echo "Starting masermon for DPM7885"
