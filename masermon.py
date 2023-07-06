@@ -91,7 +91,7 @@ def efosb_poll_chan(ser, chan):
 
 def efosb_process(HOST, PORT, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRATE):
     with serial.Serial(SERIALDEVICE, BAUDRATE, timeout=2) as ser:
-        client = InfluxDBClient(host=HOST, port=PORT)
+        client = InfluxDBClient(host=HOST, port=PORT, ssl=True, verify_ssl=True)
         client.create_database(DATABASE)
         client.switch_database(DATABASE)
         fields = {}
