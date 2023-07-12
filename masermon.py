@@ -12,6 +12,12 @@ import click
 import binascii
 import re
 import logging
+# For Environ+ module
+from bme280 import BME280
+try:
+    from smbus2 import SMBus
+except ImportError:
+    from smbus import SMBus
 
 efosb_channels = [
     { "chan": 0,    "name": "InputA_U",       "signed": -128,   "scale": 0.230,   "offset": 0    },
@@ -333,7 +339,35 @@ def dpm7885_process(HOST, PORT, DATABASE, MASERID, SERIALDEVICE, BAUDRATE, LOGRA
                 client.create_database(DATABASE)
                 client.switch_database(DATABASE)
                 time.sleep(1)
- 
+
+def environplus_process(HOST, PORT, DATABASE, MASERID, LOGRATE):
+        client = InfluxDBClient(host=HOST, port=PORT, ssl=True, verify_ssl=True)
+        client.create_database(DATABASE)
+        client.switch_database(DATABASE)
+        bus = SMBus(1)
+        bme280 = BME280(i2c_dev=bus)
+        while True:
+            timestamp = datetime.datetime.utcnow().isoformat()
+            temperature = bme280.get_temperature()
+            pressure = 100.0 * bme280.get_pressure()
+            humidity = bme280.get_humidity()
+            json_body = [
+                {
+                    "measurement": MASERID,
+                    "tags": {
+                        "masertype": "bme280"
+                    },
+                    "time": timestamp,
+                    "fields": {
+                        "Pressure": pressure,
+                        "Temp": temperature,
+                        "Humidity": humidity
+                    }
+                }
+            ]
+            client.write_points(json_body)
+            time.sleep(LOGRATE)
+
 
 @click.group()
 @click.option('--host', default='localhost', help="InfluxDB host (default localhost)")
@@ -381,6 +415,13 @@ def DPM7885(ctx):
     "DPM7885 pressure sensor"
     print("DPM7885 pressure sensor for %s %s using device %s at rate %i" % (ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate']))
     dpm7885_process(ctx.obj['host'], ctx.obj['port'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'], ctx.obj['baudrate'], ctx.obj['lograte'])
+
+@maser.command()
+@click.pass_context
+def bme280(ctx):
+    "Environ+ BME280 sensor"
+    print("Environ+ BME280 sensor for %s %s at rate %i" %( ctx.obj['database'], ctx.obj['maserid'], ctx.obj['lograte']))
+    environplus_process(ctx.obj['host'], ctx.obj['port'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['lograte'])
     
 if __name__ == '__main__':
     maser(obj={})
