@@ -368,6 +368,62 @@ def environplus_process(HOST, PORT, DATABASE, MASERID, LOGRATE):
             client.write_points(json_body)
             time.sleep(LOGRATE)
 
+            
+def ticcts_process(HOST, PORT, DATABASE, MASERID, SERIALDEVICE):
+    with serial.Serial(SERIALDEVICE, 115200, bytesize=8, parity='N', stopbits=1, xonxoff=1, timeout=2) as ser:
+        client = InfluxDBClient(host=HOST, port=PORT, ssl=True, verify_ssl=True)
+        client.create_database(DATABASE)
+        client.switch_database(DATABASE)
+        # Sync by throwing first line
+        s = ser.readline()
+        while True:
+            try:
+                s = ser.readline().decode("utf-8").rstrip()
+                timestamp = datetime.datetime.utcnow().isoformat()
+                t = float(re.split(r' ', s)[0])
+                ch = re.split(r' ', s)[1]
+                if ch == 'chA':
+                    ta = t
+                    json_body = [
+                        {
+                            "measurement": MASERID,
+                            "tags": {
+                                "masertype": "ticc",
+                                "mode": "ts"
+                            },
+                            "time": timestamp,
+                            "fields": {
+                                "TA": ta
+                            }
+                        }
+                    ]
+                    client.write_points(json_body)
+                else:
+                    tb = t
+                    tc = ta - tb
+                    json_body = [
+                        {
+                            "measurement": MASERID,
+                            "tags": {
+                                "masertype": "ticc",
+                                "mode": "ts"
+                            },
+                            "time": timestamp,
+                            "fields": {
+                                "TB": tb,
+                                "TC": tc
+                            }
+                        }
+                    ]
+                    client.write_points(json_body)
+            except AssertionError as e:
+                logging.error(e)
+            except InfluxDBServerError as e:
+                logging.error(e)
+                client = InfluxDBClient(host=HOST, port=PORT, ssl=True, verify_ssl=True)
+                client.create_database(DATABASE)
+                client.switch_database(DATABASE)
+                time.sleep(1)
 
 @click.group()
 @click.option('--host', default='localhost', help="InfluxDB host (default localhost)")
@@ -422,6 +478,13 @@ def bme280(ctx):
     "Environ+ BME280 sensor"
     print("Environ+ BME280 sensor for %s %s at rate %i" %( ctx.obj['database'], ctx.obj['maserid'], ctx.obj['lograte']))
     environplus_process(ctx.obj['host'], ctx.obj['port'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['lograte'])
+
+@maser.command()
+@click.pass_context
+def ticcts(ctx):
+    "TADR TICC Time Stamp mode"
+    print("TADR TICC time-stamp for %s %s using device %s" %( ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device']))
+    ticcts_process(ctx.obj['host'], ctx.obj['port'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'])
     
 if __name__ == '__main__':
     maser(obj={})
