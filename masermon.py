@@ -18,6 +18,9 @@ try:
     from smbus2 import SMBus
 except ImportError:
     from smbus import SMBus
+# For VE Direct module
+import argparse, os
+from vedirect import Vedirect
 
 efosb_channels = [
     { "chan": 0,    "name": "InputA_U",       "signed": -128,   "scale": 0.230,   "offset": 0    },
@@ -424,6 +427,63 @@ def ticcts_process(HOST, PORT, DATABASE, MASERID, SERIALDEVICE):
                 client.create_database(DATABASE)
                 client.switch_database(DATABASE)
                 time.sleep(1)
+            
+def vedirect_process(HOST, PORT, DATABASE, MASERID, SERIALDEVICE):
+        client = InfluxDBClient(host=HOST, port=PORT, ssl=True, verify_ssl=True)
+        client.create_database(DATABASE)
+        client.switch_database(DATABASE)        
+        ve = Vedirect(SERIALDEVICE, 60)
+
+        def vedirect_callback(packet):
+            timestamp = datetime.datetime.utcnow().isoformat()
+            for key, value in packet.items():
+                #print(key)
+                #print(value)
+                if key == 'V':
+                    V = float(value)/1000
+                if key == 'I':
+                    I = float(value)/100
+                if key == 'VPV':
+                    VPV = float(value)/1000
+                if key == 'PPV':
+                    PPV = float(value)
+                if key == 'IL':
+                    IL = float(value)/100
+            #print("V   = %+7.3f V" % V)
+            #print("I   = %+7.2f A" % I)
+            #print("VPV = %+7.3f V" % VPV)
+            #print("PPV = %+7.0f W" % PPV)
+            #print("IL  = %+7.2f A" % IL)
+            json_body = [
+                {
+                    "measurement": MASERID,
+                    "tags": {
+                        "masertype": "vedirect"
+                    },
+                    "time": timestamp,
+                    "fields": {
+                        "V": V,
+                        "I": I,
+                        "VPV": VPV,
+                        "PPV": PPV,
+                        "IL": IL
+                    }
+                }
+            ]
+            client.write_points(json_body)
+
+        while True:
+            try:
+                #print(ve.read_data_callback(print_data_callback))
+                vv = ve.read_data_callback(vedirect_callback)
+            except AssertionError as e:
+                logging.error(e)
+            except InfluxDBServerError as e:
+                logging.error(e)
+                client = InfluxDBClient(host=HOST, port=PORT, ssl=True, verify_ssl=True)
+                client.create_database(DATABASE)
+                client.switch_database(DATABASE)
+                time.sleep(1)
 
 @click.group()
 @click.option('--host', default='localhost', help="InfluxDB host (default localhost)")
@@ -485,6 +545,14 @@ def ticcts(ctx):
     "TADR TICC Time Stamp mode"
     print("TADR TICC time-stamp for %s %s using device %s" %( ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device']))
     ticcts_process(ctx.obj['host'], ctx.obj['port'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'])
+
+@maser.command()
+@click.pass_context
+def vedirect(ctx):
+    "VE Direct MPPT mode"
+    print("VE Direct MPPT for %s %s using device %s" %( ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device']))
+    vedirect_process(ctx.obj['host'], ctx.obj['port'], ctx.obj['database'], ctx.obj['maserid'], ctx.obj['device'])
     
 if __name__ == '__main__':
     maser(obj={})
+
