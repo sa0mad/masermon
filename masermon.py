@@ -442,13 +442,13 @@ def vedirect_process(HOST, PORT, DATABASE, MASERID, SERIALDEVICE):
                 if key == 'V':
                     V = float(value)/1000
                 if key == 'I':
-                    I = float(value)/100
+                    I = float(value)/1000
                 if key == 'VPV':
                     VPV = float(value)/1000
                 if key == 'PPV':
                     PPV = float(value)
                 if key == 'IL':
-                    IL = float(value)/100
+                    IL = float(value)/1000
             #print("V   = %+7.3f V" % V)
             #print("I   = %+7.2f A" % I)
             #print("VPV = %+7.3f V" % VPV)
