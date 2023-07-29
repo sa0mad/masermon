@@ -1,7 +1,11 @@
 #!/bin/sh
 echo "Starting masermon for EFOS-B"
-python3 masermon.py --host=labpi.rubidium.se --database EFOStest --device /dev/ttyUSB3 efosb &
+#python3 masermon.py --host=labpi.rubidium.se --database EFOStest --device /dev/ttyUSB3 efosb &
 echo "Starting masermon for HP5071A"
-python3 masermon.py --host=labpi.rubidium.se --database gaston hp5071a &
+python3 /home/pi/maserjunk/masermon/masermon.py --host=labpi.rubidium.se --database gaston --device /dev/ttyUSB4 hp5071a &
 echo "Starting masermon for DPM7885"
-python3 masermon.py --host=labpi.rubidium.se --database gaston --device /dev/ttyUSB1 dpm7885 &
+#python3 /home/pi/maserjunk/masermon/masermon.py --host=labpi.rubidium.se --database gaston --device /dev/ttyUSB1 dpm7885 &
+./masermon.py --host=labpi.rubidium.se --database gaston --device /dev/ttyUSB5 dpm7885 &
+./masermon.py --host=labpi.rubidium.se --database gaston bme280 &
+./masermon.py --host=labpi.rubidium.se --database gaston --device /dev/ttyACM0 ticcts &
+./masermon.py --host=labpi.rubidium.se --database gaston --device /dev/ttyUSB6 vedirect &

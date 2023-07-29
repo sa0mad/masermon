@@ -1,0 +1,4 @@
+# /etc/udev/rules.d/99-usb-serial.rules
+SUBSYSTEM=="tty", ENV{ID_VENDOR_ID}=="0557", ENV{ID_MODEL_ID}=="2008", ENV{ID_PATH}=="platform-fd500000.pcie-pci-0000:01:00.0-usb-0:1.2.1.1:1.0", SYMLINK+="ttyUSB4"
+SUBSYSTEM=="tty", ENV{ID_PATH}=="platform-fd500000.pcie-pci-0000:01:00.0-usb-0:1.2.1.2:1.0", SYMLINK+="ttyUSB5"
+SUBSYSTEM=="tty", ENV{ID_VENDOR_ID}=="0403", ENV{ID_MODEL_ID}=="6015", SYMLINK+="ttyUSB6"
