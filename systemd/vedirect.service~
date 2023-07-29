@@ -1,0 +1,14 @@
+[Unit]
+Description=Start DPM7885 logging
+
+[Service]
+Environment=PATH=/home/pi/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONPATH=/home/pi/.local/lib/python3.7/site-packages
+ExecStart=/bin/bash -c '/usr/bin/python3 /home/pi/maserjunk/masermon/masermon.py --host=labpi.rubidium.se --database gaston --device /dev/ttyUSB5 dpm7885 &'
+Restart=always
+RestartSec=10s
+KillMode=process
+TimeoutSec=infinity
+
+[Install]
+WantedBy=graphical.target
