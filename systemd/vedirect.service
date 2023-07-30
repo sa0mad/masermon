@@ -1,5 +1,7 @@
 [Unit]
 Description=Start VE Direct logging
+Requires=influxdb.service
+After=influxdb.service
 
 [Service]
 Environment=PATH=/home/pi/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
