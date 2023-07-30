@@ -7,3 +7,8 @@ pressure sensor.
 
 `udev` contains an udev device mapping example as used for a setup, to
 illustrate how USB devices can get static names for easing scripting.
+
+`systemd` contains a few systemd service examples as used for a setup, to
+illustrate how to autostart the logging upon boot/reboot but while waiting for
+influxdb to be up. Having done the `udev` mappings, this can then have the
+static configuration.
